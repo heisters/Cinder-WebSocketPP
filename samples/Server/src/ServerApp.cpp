@@ -33,7 +33,7 @@
  * 
  */
 
-#include "cinder/app/AppBasic.h"
+#include "cinder/app/App.h"
 #include "cinder/gl/Texture.h"
 #include "cinder/params/Params.h"
 #include "cinder/Text.h"
@@ -48,12 +48,11 @@
  * communicate with clients.
  */
 
-class ServerApp : public ci::app::AppBasic 
+class ServerApp : public ci::app::App
 {
 public:
 	void						draw();
 	void						keyDown( ci::app::KeyEvent event );
-	void						prepareSettings( ci::app::AppBasic::Settings* settings );
 	void						setup();
 	void						update();
 private:
@@ -68,10 +67,10 @@ private:
 
 	ci::Font					mFont;
 	std::string					mMessage;
-	ci::Vec2f					mSize;
+    glm::vec2					mSize;
 	std::string					mText;
 	std::string					mTextPrev;
-	ci::gl::Texture				mTexture;
+	ci::gl::TextureRef			mTexture;
 
 	float						mFrameRate;
 	bool						mFullScreen;
@@ -81,6 +80,8 @@ private:
 #include "boost/algorithm/string.hpp"
 #include "cinder/Json.h"
 #include "cinder/Utilities.h"
+#include "cinder/gl/gl.h"
+#include "cinder/app/RendererGl.h"
 
 using namespace ci;
 using namespace ci::app;
@@ -88,8 +89,12 @@ using namespace std;
 
 void ServerApp::draw()
 {
-	gl::setViewport( getWindowBounds() );
+    auto bounds = getWindowBounds();
+    gl::ScopedViewport viewport( bounds.x1, bounds.y1, bounds.getWidth(), bounds.getHeight() );
+    gl::ScopedMatrices matrices;
+
 	gl::clear();
+
 	gl::setMatricesWindow( getWindowSize() );
 
 	if ( mTexture ) {
@@ -146,13 +151,6 @@ void ServerApp::onRead( string msg )
 	}
 }
 
-void ServerApp::prepareSettings( Settings* settings )
-{
-	settings->setFrameRate( 60.0f );
-	settings->setResizable( false );
-	settings->setWindowSize( 512, 384 );
-}
-
 void ServerApp::setup()
 {
 	mFrameRate	= 0.0f;
@@ -161,7 +159,7 @@ void ServerApp::setup()
 	
 	gl::enable( GL_TEXTURE_2D );
 	mFont		= Font( "Georgia", 80 );
-	mSize		= Vec2f( getWindowSize() );
+	mSize		= vec2( getWindowSize() );
 	mText		= "Listening...";
 	mTextPrev	= "";
 
@@ -172,7 +170,7 @@ void ServerApp::setup()
 	mServer.addPingCallback( &ServerApp::onPing, this );
 	mServer.addReadCallback( &ServerApp::onRead, this );
 
-	mParams = params::InterfaceGl::create( "SERVER", Vec2i( 200, 100 ) );
+	mParams = params::InterfaceGl::create( "SERVER", vec2( 200, 100 ) );
 	mParams->addParam( "Frame rate", &mFrameRate, "", true );
 	mParams->addParam( "Fullscreen", &mFullScreen, "key=f" );
 	mParams->addParam( "Message", &mMessage );
@@ -197,12 +195,12 @@ void ServerApp::update()
 		if ( mText.empty() ) {
 			mTexture.reset();
 		} else {
-			TextBox tbox = TextBox().alignment( TextBox::CENTER ).font( mFont ).size( Vec2i( mSize.x, TextBox::GROW ) ).text( mText );
+			TextBox tbox = TextBox().alignment( TextBox::CENTER ).font( mFont ).size( vec2( mSize.x, TextBox::GROW ) ).text( mText );
 			tbox.setColor( ColorAf( 1.0f, 0.8f, 0.75f, 1.0f ) );
 			tbox.setBackgroundColor( ColorAf::black() );
 			tbox.setPremultiplied( false );
 			mSize.y		= tbox.measure().y;
-			mTexture	= gl::Texture( tbox.render() );
+            mTexture	= gl::Texture::create( tbox.render() );
 		}
 	}
 }
@@ -212,4 +210,8 @@ void ServerApp::write()
 	mServer.write( mMessage );
 }
 
-CINDER_APP_BASIC( ServerApp, RendererGl )
+CINDER_APP( ServerApp, RendererGl, []( AppBase::Settings *settings ) {
+    settings->setFrameRate( 60.f );
+    settings->setResizable( false );
+    settings->setWindowSize( 512, 384 );
+})
