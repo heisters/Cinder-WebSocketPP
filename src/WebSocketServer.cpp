@@ -46,8 +46,7 @@ using websocketpp::lib::bind;
 
 WebSocketServer::WebSocketServer()
 {
-	mServer.set_access_channels(websocketpp::log::alevel::all);
-	mServer.clear_access_channels(websocketpp::log::alevel::frame_payload);
+	mServer.clear_access_channels(websocketpp::log::alevel::all);
 	
 	mServer.init_asio();
 	
